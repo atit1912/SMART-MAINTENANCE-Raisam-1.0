@@ -268,6 +268,13 @@ body.dark .notif-title{color:#E0E0E0}
   </div>
   <button class="btn btn-blue" onclick="doLogin()" id="btn-login">เข้าสู่ระบบ</button>
   <div id="lerr" style="display:none" class="alert alert-err mt12"></div>
+  <div id="sess-expired" style="display:none;margin-top:12px;background:#FFF8E1;border:1px solid #FFD54F;border-left:4px solid #F9A825;border-radius:8px;padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-size:18px">⏰</span>
+      <span style="font-size:14px;font-weight:600;color:#E65100">หมดเวลาการใช้งาน</span>
+    </div>
+    <div style="font-size:13px;color:#5D4037;line-height:1.6">เซสชันของคุณหมดอายุแล้ว (8 ชั่วโมง)<br>กรุณาเข้าสู่ระบบใหม่อีกครั้ง</div>
+  </div>
   <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
     <span style="font-size:11px;color:var(--blue);font-weight:500;">Developed by Atit Chimnan</span>
   </div>
@@ -700,7 +707,7 @@ body.dark .notif-title{color:#E0E0E0}
 // ══════════════════════════════════════════════════════════
 // CONFIG — เปลี่ยนเฉพาะ GAS_URL หลัง Deploy
 // ══════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk2PlaivjfGvGzs3rrJkGRnTj_NmLHJx23wJEte9lcAWSRBoHJjBR0AVU8T28fvgPW/exec'; // ← วาง URL หลัง Deploy
+const GAS_URL = 'YOUR_GAS_URL_HERE'; // ← วาง URL หลัง Deploy
 
 let sess=null,master={},allData=[],allTab='all',rptTab='all',allUsrs=[],hist=[];
 
@@ -755,7 +762,11 @@ async function doLogin(){
   $('btn-login').disabled=true;$('btn-login').textContent='กำลังเข้าสู่ระบบ...';
   try{
     const r=await api({action:'login',username:u,password:p});
-    if(r.success){sess=r;sess.loginTime=Date.now();localStorage.setItem('sm_s',JSON.stringify(sess));startApp();}
+    if(r.success){
+      sess=r;sess.loginTime=Date.now();localStorage.setItem('sm_s',JSON.stringify(sess));
+      const exp=$('sess-expired');if(exp)exp.style.display='none';
+      startApp();
+    }
     else{$('lerr').textContent=r.message;$('lerr').style.display='block';}
   }catch(e){$('lerr').textContent='ไม่สามารถเชื่อมต่อได้';$('lerr').style.display='block';}
   finally{$('btn-login').disabled=false;$('btn-login').textContent='เข้าสู่ระบบ';}
@@ -765,8 +776,17 @@ function checkSess(){
   const s=localStorage.getItem('sm_s');
   if(s){
     sess=JSON.parse(s);
-    if(Date.now()-(sess.loginTime||0)>8*60*60*1000){sess=null;localStorage.removeItem('sm_s');toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');return;}
+    if(Date.now()-(sess.loginTime||0)>8*60*60*1000){
+      sess=null;localStorage.removeItem('sm_s');
+      const exp=$('sess-expired');if(exp)exp.style.display='block';
+      toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');
+      return;
+    }
     startApp();
+    setInterval(()=>{
+      const cur=localStorage.getItem('sm_s');
+      if(cur){const obj=JSON.parse(cur);if(Date.now()-(obj.loginTime||0)>8*60*60*1000){sess=null;localStorage.removeItem('sm_s');$('main').style.display='none';$('pg-login').style.display='flex';const exp=$('sess-expired');if(exp)exp.style.display='block';toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');}}
+    },15*60*1000);
   }
 }
 function startApp(){
@@ -1112,26 +1132,37 @@ async function loadRpt(){
       const pend=d.filter(x=>x.current_status!=='เสร็จสิ้น'&&x.current_status!=='ไม่อนุมัติ').length;
       const cost=(s?.total_cost||d.reduce((a,x)=>a+(+x.total_cost||0),0));
       $('rpt-sum').innerHTML=`<div class="scard s0" style="cursor:default"><div class="snum">${d.length}</div><div class="slbl">ทั้งหมด</div></div><div class="scard s1" style="cursor:default"><div class="snum">${done}</div><div class="slbl">เสร็จสิ้น</div></div><div class="scard s3" style="cursor:default"><div class="snum">${pend}</div><div class="slbl">ค้างอยู่</div></div><div class="scard" style="cursor:default"><div class="snum" style="font-size:20px;color:var(--orange)">${cost.toLocaleString()}</div><div class="slbl">ค่าใช้จ่าย (฿)</div></div>`;
-      const byDept=(()=>{if(s?.by_department&&Object.keys(s.by_department).length>0)return s.by_department;const bd={};d.filter(x=>x.current_status==='เสร็จสิ้น').forEach(x=>{if(!bd[x.department])bd[x.department]={count:0,total:0};bd[x.department].count++;bd[x.department].total+=(+x.total_cost||0);});return bd;})();
-      const deptKeys=Object.keys(byDept);
+      // byDeptCount = จำนวนงานทั้งหมดตามหน่วยงาน (ทุกสถานะ) สำหรับโดนัท
+      const byDeptCount=(()=>{const bd={};d.forEach(x=>{if(!bd[x.department])bd[x.department]=0;bd[x.department]++;});return bd;})();
+      // byDeptCost = จำนวนเงินตามหน่วยงาน (เฉพาะงานเสร็จสิ้น) สำหรับกราฟแท่ง
+      const byDeptCost=(()=>{if(s?.by_department&&Object.keys(s.by_department).length>0)return s.by_department;const bd={};d.filter(x=>x.current_status==='เสร็จสิ้น').forEach(x=>{if(!bd[x.department])bd[x.department]={count:0,total:0};bd[x.department].count++;bd[x.department].total+=(+x.total_cost||0);});return bd;})();
+      const deptKeys=Object.keys(byDeptCount);
       if(deptKeys.length>0){
-        const deptVals=deptKeys.map(k=>byDept[k].total);
-        const total=deptVals.reduce((a,b)=>a+b,0);
+        const donutVals=deptKeys.map(k=>byDeptCount[k]);
+        const totalCount=donutVals.reduce((a,b)=>a+b,0);
+        // กราฟแท่ง: ใช้ deptKeys เดิม แต่ดึงจาก byDeptCost (บางหน่วยงานอาจไม่มีค่าใช้จ่าย)
+        const barKeys=Object.keys(byDeptCost);
+        const barVals=barKeys.map(k=>byDeptCost[k].total);
+        const totalCostBar=barVals.reduce((a,b)=>a+b,0);
         const colors=['#1976D2','#E65100','#2E7D32','#6A1B9A','#00695C','#C62828','#F9A825','#0288D1'];
         const assignedColors=deptKeys.map((_,i)=>colors[i%colors.length]);
-        const legendHtml=deptKeys.map((k,i)=>`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#424242"><span style="width:10px;height:10px;border-radius:2px;background:${assignedColors[i]};flex-shrink:0"></span>${k} ${Math.round(deptVals[i]/total*100)}%</span>`).join('');
+        const barColors=barKeys.map((_,i)=>colors[i%colors.length]);
+        const legendHtml=deptKeys.map((k,i)=>`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#424242"><span style="width:10px;height:10px;border-radius:2px;background:${assignedColors[i]};flex-shrink:0"></span>${k} ${byDeptCount[k]} งาน (${Math.round(byDeptCount[k]/totalCount*100)}%)</span>`).join('');
         $('rpt-sum').innerHTML+=`<div class="card" style="grid-column:1/-1"><div class="card-p">
-          <div class="sec" style="margin-bottom:12px">ค่าใช้จ่ายตามหน่วยงาน</div>
+          <div class="sec" style="margin-bottom:4px">จำนวนงานตามหน่วยงาน</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px">ทุกสถานะ รวม ${totalCount} งาน</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${legendHtml}</div>
           <div style="position:relative;width:100%;height:280px;margin-bottom:20px"><canvas id="rpt-donut"></canvas></div>
+          <div class="sec" style="margin-bottom:4px">ค่าใช้จ่ายตามหน่วยงาน</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px">เฉพาะงานเสร็จสิ้น รวม ${totalCostBar.toLocaleString()} ฿</div>
           <div style="position:relative;width:100%;height:240px"><canvas id="rpt-bar"></canvas></div>
         </div></div>`;
         if(_rptDonutChart){_rptDonutChart.destroy();_rptDonutChart=null;}
         if(_rptBarChart){_rptBarChart.destroy();_rptBarChart=null;}
         if(typeof Chart!=='undefined'&&typeof ChartDataLabels!=='undefined'){
           Chart.register(ChartDataLabels);
-          _rptDonutChart=new Chart($('rpt-donut'),{type:'doughnut',data:{labels:deptKeys,datasets:[{data:deptVals,backgroundColor:assignedColors,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'48%',layout:{padding:30},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=Math.round(ctx.parsed/total*100);return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} ฿ (${pct}%)`}}},datalabels:{display:true,anchor:'end',align:'end',offset:4,color:(_ctx)=>assignedColors[_ctx.dataIndex],font:{size:9,weight:'500'},textAlign:'center',formatter:(value,ctx)=>{const pct=Math.round(value/total*100);return pct+'%\n'+value.toLocaleString()+'฿';}}}},plugins:[{id:'centerText',afterDraw(chart){const {ctx,chartArea:{left,right,top,bottom}}=chart;const cx=(left+right)/2,cy=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#757575';ctx.font='10px sans-serif';ctx.fillText('รวม',cx,cy-8);ctx.fillStyle='#1976D2';ctx.font='500 12px sans-serif';ctx.fillText(total.toLocaleString()+' ฿',cx,cy+8);ctx.restore();}}]});
-          _rptBarChart=new Chart($('rpt-bar'),{type:'bar',data:{labels:deptKeys,datasets:[{data:deptVals,backgroundColor:assignedColors,borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString()} บาท`}}},scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:45,font:{size:9},color:'#757575'}},y:{grid:{color:'rgba(0,0,0,0.06)'},title:{display:true,text:'บาท (฿)',font:{size:10},color:'#757575'},ticks:{font:{size:9},color:'#757575',callback:v=>v.toLocaleString()+'฿'}}}},plugins:[ChartDataLabels]});
+          _rptDonutChart=new Chart($('rpt-donut'),{type:'doughnut',data:{labels:deptKeys,datasets:[{data:donutVals,backgroundColor:assignedColors,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'48%',layout:{padding:30},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=Math.round(ctx.parsed/totalCount*100);return ` ${ctx.label}: ${ctx.parsed} งาน (${pct}%)`}}},datalabels:{display:true,anchor:'end',align:'end',offset:4,color:(_ctx)=>assignedColors[_ctx.dataIndex],font:{size:9,weight:'500'},textAlign:'center',formatter:(value,ctx)=>{const pct=Math.round(value/totalCount*100);return pct+'%\n'+value+' งาน';}}}},plugins:[{id:'centerText',afterDraw(chart){const {ctx,chartArea:{left,right,top,bottom}}=chart;const cx=(left+right)/2,cy=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#757575';ctx.font='10px sans-serif';ctx.fillText('รวม',cx,cy-8);ctx.fillStyle='#1976D2';ctx.font='500 12px sans-serif';ctx.fillText(totalCount+' งาน',cx,cy+8);ctx.restore();}}]});
+          _rptBarChart=new Chart($('rpt-bar'),{type:'bar',data:{labels:barKeys,datasets:[{data:barVals,backgroundColor:barColors,borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString()} บาท`}}},scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:45,font:{size:9},color:'#757575'}},y:{grid:{color:'rgba(0,0,0,0.06)'},title:{display:true,text:'บาท (฿)',font:{size:10},color:'#757575'},ticks:{font:{size:9},color:'#757575',callback:v=>v.toLocaleString()+'฿'}}}},plugins:[ChartDataLabels]});
         }
       }
       renderList('rpt-ls',d);
