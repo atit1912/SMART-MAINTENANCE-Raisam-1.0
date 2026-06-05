@@ -308,6 +308,7 @@ body.dark .notif-title{color:#E0E0E0}
           <div class="prole" id="d-role">-</div>
         </div>
       </div>
+      <div id="rating-banner" style="display:none;margin-bottom:12px"></div>
       <div class="sec">สรุปสถานะงาน</div>
       <div class="sgrid">
         <div class="scard s0" onclick="goFilter('แจ้งซ่อม')"><div class="snum" id="s0">-</div><div class="slbl">แจ้งซ่อม</div></div>
@@ -331,7 +332,7 @@ body.dark .notif-title{color:#E0E0E0}
           <svg viewBox="0 0 24 24" stroke="var(--purple)"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>งานของฉัน</span>
         </button>
-        <button class="mitem" id="m-apv" onclick="go('pg-apv')" style="display:none">
+        <button class="mitem" id="m-apv" onclick="goApv()" style="display:none">
           <div style="position:relative">
             <svg viewBox="0 0 24 24" stroke="var(--green)" width="28" height="28" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             <div id="badge-apv" style="display:none;position:absolute;top:-6px;right:-6px;background:#C62828;color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center">0</div>
@@ -707,7 +708,7 @@ body.dark .notif-title{color:#E0E0E0}
 // ══════════════════════════════════════════════════════════
 // CONFIG — เปลี่ยนเฉพาะ GAS_URL หลัง Deploy
 // ══════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk2PlaivjfGvGzs3rrJkGRnTj_NmLHJx23wJEte9lcAWSRBoHJjBR0AVU8T28fvgPW/exec'; // ← วาง URL หลัง Deploy
+const GAS_URL = 'YOUR_GAS_URL_HERE'; // ← วาง URL หลัง Deploy
 
 let sess=null,master={},allData=[],allTab='all',rptTab='all',allUsrs=[],hist=[];
 
@@ -849,6 +850,39 @@ async function loadDash(){
   try{const r=await api({action:'getDashboardStats'});
     if(r.success){const s=r.data;$('s0').textContent=s.new||0;$('s1').textContent=s.approved||0;$('s2').textContent=s.rejected||0;$('s3').textContent=s.accepted||0;$('s4').textContent=s.in_progress||0;$('s5').textContent=s.done||0;}
   }catch(e){}
+  // rating banner
+  try{
+    const rm=await api({action:'getMyRequests'});
+    const banner=$('rating-banner');
+    if(rm.success&&banner){
+      const pending=rm.data.filter(d=>d.current_status==='เสร็จสิ้น'&&!d.rating_score);
+      if(pending.length>0){
+        banner.style.display='block';
+        banner.innerHTML=`<div style="background:linear-gradient(135deg,#FFF3E0,#FFF8E1);border:1px solid #FFB300;border-left:4px solid #E65100;border-radius:12px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px">⭐</span>
+              <div>
+                <div style="font-size:14px;font-weight:600;color:#E65100">รอให้คะแนนการซ่อม</div>
+                <div style="font-size:11px;color:#795548">มี ${pending.length} งานที่รอคะแนนจากคุณ</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${pending.map(d=>`<div onclick="openDet('${d.request_id}')" style="background:#fff;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border:1px solid #FFCC80;active:opacity:0.8">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1976D2">${d.request_id}</div>
+                <div style="font-size:11px;color:#616161">${d.work_category||''} · ${d.department||''}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;color:#E65100;font-size:13px;font-weight:600">ให้คะแนน <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E65100" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      } else {
+        banner.style.display='none';
+      }
+    }
+  }catch(e){}
 }
 const TAGS={'แจ้งซ่อม':'tag-new','อนุมัติ':'tag-ok','ไม่อนุมัติ':'tag-no','ช่างรับงาน':'tag-acc','กำลังดำเนินการ':'tag-wip','เสร็จสิ้น':'tag-done'};
 const LCOLOR={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
@@ -931,6 +965,16 @@ async function loadMine(){
   }catch(e){}finally{ul();}
 }
 async function loadApv(){ld();try{const r=await api({action:'getPendingApproval'});if(r.success)renderList('ls-apv',r.data);else toast(r.message,'er');}catch(e){}finally{ul();}}
+async function goApv(){
+  ld();
+  try{
+    const r=await api({action:'getPendingApproval'});
+    if(r.success){
+      if(r.data.length===1){renderList('ls-apv',r.data);openDet(r.data[0].request_id);}
+      else{renderList('ls-apv',r.data);go('pg-apv');}
+    }
+  }catch(e){}finally{ul();}
+}
 async function loadAcc(){ld();try{const r=await api({action:'getPendingAccept'});if(r.success)renderList('ls-acc',r.data);}catch(e){}finally{ul();}}
 async function loadWip(){ld();try{const r=await api({action:'getInProgress'});if(r.success)renderList('ls-wip',r.data);}catch(e){}finally{ul();}}
 function setTab(v,el,gid){
@@ -959,7 +1003,7 @@ function renderDet(r){
   const canApv=apv&&r.current_status==='แจ้งซ่อม';
   const canAcc=tec&&r.current_status==='อนุมัติ';
   const canStart=tec&&r.current_status==='ช่างรับงาน';
-  const canClose=tec&&(r.current_status==='กำลังดำเนินการ'||r.current_status==='ช่างรับงาน');
+  const canClose=tec&&r.current_status==='กำลังดำเนินการ';
   let act='';
   if(canApv)act=`<div class="btn-row mb12"><button class="btn btn-ghost-red" onclick="doReject('${r.request_id}')">ไม่อนุมัติ</button><button class="btn btn-green" onclick="doApprove('${r.request_id}')">อนุมัติ</button></div>`;
   if(canAcc)act+=`<button class="btn btn-blue mb12" onclick="doAccept('${r.request_id}')">รับงาน</button>`;
