@@ -309,6 +309,7 @@ body.dark .notif-title{color:#E0E0E0}
         </div>
       </div>
       <div id="rating-banner" style="display:none;margin-bottom:12px"></div>
+      <div id="wip-banner" style="display:none;margin-bottom:12px"></div>
       <div class="sec">สรุปสถานะงาน</div>
       <div class="sgrid">
         <div class="scard s0" onclick="goFilter('แจ้งซ่อม')"><div class="snum" id="s0">-</div><div class="slbl">แจ้งซ่อม</div></div>
@@ -421,6 +422,14 @@ body.dark .notif-title{color:#E0E0E0}
           <option value="10">ตุลาคม</option><option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
         </select>
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="all-dept" class="fc" style="flex:1" onchange="renderFilteredAll()">
+          <option value="">ทุกหน่วยงาน</option>
+        </select>
+        <select id="all-cat" class="fc" style="flex:1" onchange="renderFilteredAll()">
+          <option value="">ทุกหมวดหมู่</option>
+        </select>
+      </div>
       <div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="sch-all" placeholder="ค้นหาเลขงาน หรือปัญหา..." oninput="filterAll()"></div>
       <div class="tabs" id="tabs-all">
         <button class="tab on" onclick="setTab('all',this,'tabs-all')">ทั้งหมด</button>
@@ -467,6 +476,27 @@ body.dark .notif-title{color:#E0E0E0}
   <div class="page" id="pg-det">
     <div class="bar"><button class="bar-back" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><span class="bar-title" id="det-title">รายละเอียด</span></div>
     <div class="body" id="det-body"></div>
+  </div>
+
+  <!-- EDIT REQUEST -->
+  <div class="page" id="pg-edit">
+    <div class="bar"><button class="bar-back" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button><span class="bar-title">แก้ไขคำร้อง</span></div>
+    <div class="body">
+      <div class="alert alert-info" id="edit-id" style="margin-bottom:12px"></div>
+      <input type="hidden" id="edit-rid">
+      <div class="fg"><label class="fl">หน่วยงาน <span class="req">*</span></label><select id="edit-dept" class="fc"></select></div>
+      <div class="fg"><label class="fl">ประเภทการแจ้ง <span class="req">*</span></label><select id="edit-type" class="fc"></select></div>
+      <div class="fg"><label class="fl">วันที่และเวลาเข้าซ่อมได้ <span class="req">*</span></label><input id="edit-avail" type="datetime-local" class="fc"></div>
+      <div class="fg"><label class="fl">วันที่และเวลาต้องการให้เสร็จ <span class="req">*</span></label><input id="edit-end" type="datetime-local" class="fc"></div>
+      <div class="fg"><label class="fl">หมวดหมู่งาน <span class="req">*</span></label><select id="edit-cat" class="fc"></select></div>
+      <div class="fg"><label class="fl">สถานะเครื่องจักร <span class="req">*</span></label><select id="edit-mach" class="fc"></select></div>
+      <div class="fg"><label class="fl">รายละเอียด / สถานที่ <span class="req">*</span></label><textarea id="edit-det" class="fc" placeholder="อธิบายปัญหาและสถานที่"></textarea></div>
+      <div class="fg"><label class="fl">ระดับความเร่งด่วน <span class="req">*</span></label><select id="edit-urg" class="fc"></select></div>
+      <div class="btn-row mt12">
+        <button class="btn btn-gray" onclick="back()">ยกเลิก</button>
+        <button class="btn btn-blue" onclick="submitEdit()" id="btn-edit-save">บันทึกการแก้ไข</button>
+      </div>
+    </div>
   </div>
 
   <!-- CLOSE JOB -->
@@ -663,6 +693,11 @@ body.dark .notif-title{color:#E0E0E0}
         </div>
         <div style="width:100px"><label style="font-size:12px;color:#757575;display:block;margin-bottom:4px">ปี</label><select id="exp-y" class="fc" onchange="updateExpInfo()"></select></div>
       </div>
+      <div style="margin-bottom:16px"><label style="font-size:12px;color:#757575;display:block;margin-bottom:4px">หน่วยงาน</label>
+        <select id="exp-dept" class="fc" onchange="updateExpInfo()">
+          <option value="">ทุกหน่วยงาน</option>
+        </select>
+      </div>
       <div style="font-size:12px;color:#757575;margin-bottom:8px">รูปแบบไฟล์</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
         <div id="fmt-xlsx" onclick="selectFmt('xlsx')" style="border:2px solid #1976D2;border-radius:8px;padding:12px;text-align:center;cursor:pointer">
@@ -708,7 +743,7 @@ body.dark .notif-title{color:#E0E0E0}
 // ══════════════════════════════════════════════════════════
 // CONFIG — เปลี่ยนเฉพาะ GAS_URL หลัง Deploy
 // ══════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk2PlaivjfGvGzs3rrJkGRnTj_NmLHJx23wJEte9lcAWSRBoHJjBR0AVU8T28fvgPW/exec'; // ← วาง URL หลัง Deploy
+const GAS_URL = 'YOUR_GAS_URL_HERE'; // ← วาง URL หลัง Deploy
 
 let sess=null,master={},allData=[],allTab='all',rptTab='all',allUsrs=[],hist=[];
 
@@ -729,7 +764,7 @@ function go(id,navEl){
   if(id==='pg-dash')hist=[];
   else if(hist[hist.length-1]!==id)hist.push(id);
   if(navEl){document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('on'));navEl.classList.add('on');}
-  const noNav=['pg-new','pg-det','pg-close','pg-uf','pg-set','pg-profile'];
+  const noNav=['pg-new','pg-det','pg-close','pg-uf','pg-set','pg-profile','pg-edit'];
   $('bnav').style.display=noNav.includes(id)?'none':'flex';
   if(id==='pg-dash')loadDash();
   if(id==='pg-all'){initAllYear();loadAll();}
@@ -749,7 +784,7 @@ function back(){
   if(prev==='pg-dash')hist=[];
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   $(prev).classList.add('on');
-  const noNav=['pg-new','pg-det','pg-close','pg-uf','pg-set'];
+  const noNav=['pg-new','pg-det','pg-close','pg-uf','pg-set','pg-edit'];
   $('bnav').style.display=noNav.includes(prev)?'none':'flex';
   if(prev==='pg-dash')loadDash();
 }
@@ -883,6 +918,49 @@ async function loadDash(){
       }
     }
   }catch(e){}
+  // technician WIP banner
+  if(hasRole('Technician')||hasRole('Admin')){
+    try{
+      const wipBanner=$('wip-banner');
+      const rAcc=await api({action:'getPendingAccept'});
+      const rWip=await api({action:'getInProgress'});
+      if(wipBanner){
+        const accJobs=(rAcc.success?rAcc.data:[]);
+        const wipJobs=(rWip.success?rWip.data:[]);
+        const allWip=[...accJobs,...wipJobs];
+        if(allWip.length>0){
+          const now=new Date();
+          const overdue=allWip.filter(d=>d.required_finish_date&&new Date(d.required_finish_date)<now);
+          wipBanner.style.display='block';
+          wipBanner.innerHTML=`<div style="background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border:1px solid #CE93D8;border-left:4px solid #6A1B9A;border-radius:12px;padding:12px 14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:20px">🔧</span>
+              <div>
+                <div style="font-size:14px;font-weight:600;color:#6A1B9A">งานในมือ ${allWip.length} งาน</div>
+                <div style="font-size:11px;color:#7B1FA2">${accJobs.length>0?`รอรับงาน ${accJobs.length} · `:''}${wipJobs.length>0?`กำลังดำเนินการ ${wipJobs.length}`:''}${overdue.length>0?` · <span style="color:#C62828;font-weight:600">⚠️ เกินกำหนด ${overdue.length}</span>`:''}</div>
+              </div>
+              <button onclick="go('pg-wip')" style="margin-left:auto;background:#6A1B9A;color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-family:'Sarabun',sans-serif;cursor:pointer">ดูทั้งหมด</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${allWip.slice(0,3).map(d=>{const due=d.required_finish_date?new Date(d.required_finish_date):null;const isOver=due&&due<now;return`<div onclick="openDet('${d.request_id}')" style="background:#fff;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border:1px solid ${isOver?'#EF9A9A':'#CE93D8'}">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:#1976D2">${d.request_id}</div>
+                  <div style="font-size:11px;color:#616161">${d.work_category||''} · ${d.department||''}</div>
+                </div>
+                <div style="text-align:right">
+                  <div class="tag ${d.current_status==='ช่างรับงาน'?'tag-acc':'tag-wip'}" style="font-size:10px;padding:2px 8px">${d.current_status}</div>
+                  ${isOver?`<div style="font-size:10px;color:#C62828;font-weight:600;margin-top:2px">เกินกำหนด</div>`:''}
+                </div>
+              </div>`}).join('')}
+              ${allWip.length>3?`<div style="text-align:center;font-size:12px;color:#6A1B9A;cursor:pointer;padding:4px" onclick="go('pg-wip')">ดูอีก ${allWip.length-3} งาน →</div>`:''}
+            </div>
+          </div>`;
+        } else {
+          wipBanner.style.display='none';
+        }
+      }
+    }catch(e){}
+  }
 }
 const TAGS={'แจ้งซ่อม':'tag-new','อนุมัติ':'tag-ok','ไม่อนุมัติ':'tag-no','ช่างรับงาน':'tag-acc','กำลังดำเนินการ':'tag-wip','เสร็จสิ้น':'tag-done'};
 const LCOLOR={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
@@ -953,7 +1031,7 @@ async function loadAll(){
   try{
     const y=$('all-y')?.value||'',m=$('all-m')?.value||'';
     const r=await api({action:'getAllRequests',year:y?parseInt(y):null,month:m?parseInt(m):null});
-    if(r.success){allData=r.data;const yTh=(r.filtered_year||new Date().getFullYear())+543;$('all-info').textContent='แสดง '+r.data.length+' งาน (ปี '+yTh+')';renderFilteredAll();}
+    if(r.success){allData=r.data;populateAllFilters();renderFilteredAll();}
   }catch(e){toast('โหลดล้มเหลว','er');}finally{ul();}
 }
 async function loadMine(){
@@ -986,9 +1064,23 @@ function setTab(v,el,gid){
 function filterAll(){renderFilteredAll();}
 function renderFilteredAll(){
   const q=($('sch-all').value||'').toLowerCase();
+  const dept=($('all-dept')?.value||'');
+  const cat=($('all-cat')?.value||'');
   let d=allTab==='all'?allData:allData.filter(r=>r.current_status===allTab);
+  if(dept)d=d.filter(r=>r.department===dept);
+  if(cat)d=d.filter(r=>r.work_category===cat);
   if(q)d=d.filter(r=>r.request_id.toLowerCase().includes(q)||r.problem_detail.toLowerCase().includes(q)||r.work_category.toLowerCase().includes(q));
+  $('all-info').textContent=`แสดง ${d.length} จาก ${allData.length} งาน`;
   renderList('ls-all',d);
+}
+function populateAllFilters(){
+  const deptSel=$('all-dept'),catSel=$('all-cat');
+  if(!deptSel||!catSel)return;
+  const curDept=deptSel.value,curCat=catSel.value;
+  const depts=[...new Set(allData.map(r=>r.department).filter(Boolean))].sort();
+  const cats=[...new Set(allData.map(r=>r.work_category).filter(Boolean))].sort();
+  deptSel.innerHTML=`<option value="">ทุกหน่วยงาน</option>`+depts.map(d=>`<option value="${d}"${d===curDept?'selected':''}>${d}</option>`).join('');
+  catSel.innerHTML=`<option value="">ทุกหมวดหมู่</option>`+cats.map(c=>`<option value="${c}"${c===curCat?'selected':''}>${c}</option>`).join('');
 }
 async function openDet(id){
   ld('กำลังโหลด...');
@@ -1011,6 +1103,7 @@ function renderDet(r){
   if(canClose)act+=`<button class="btn btn-green mb12" onclick="gotoClose('${r.request_id}')">ปิดงาน</button>`;
   const cost=r.current_status==='เสร็จสิ้น'?`<div class="card"><div class="card-p"><div class="sec" style="margin-bottom:10px">ค่าใช้จ่าย</div><div class="crow"><span>ค่าอะไหล่</span><span>${(+r.cost_part||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าแรง</span><span>${(+r.cost_labor||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าอื่นๆ</span><span>${(+r.cost_other||0).toLocaleString()} บาท</span></div><div class="crow tot"><span>รวม</span><span style="color:var(--blue)">${(+r.total_cost||0).toLocaleString()} บาท</span></div></div></div>`:'';
   const canRate=r.current_status==='เสร็จสิ้น'&&r.created_by===sess.user.username&&!r.rating_score;
+  const canEdit=r.current_status==='แจ้งซ่อม'&&r.created_by===sess.user.username;
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
@@ -1052,6 +1145,14 @@ function renderDet(r){
     </div></div>
     <div class="card"><div class="card-p"><div class="sec" style="margin-bottom:12px">ประวัติการดำเนินงาน</div>${tlHtml}</div></div>
     ${cost}${ratingHtml}
+    ${canEdit?`<div class="card mt12"><div class="card-p">
+      <div class="sec" style="margin-bottom:8px;color:var(--blue)">✏️ แก้ไขคำร้อง</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">แก้ไขได้เฉพาะก่อนอนุมัติ</div>
+      <button class="btn btn-blue" onclick="gotoEdit('${r.request_id}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        แก้ไขคำร้องนี้
+      </button>
+    </div></div>`:''}
     ${adm?`<div class="card mt12"><div class="card-p">
       <div class="sec" style="margin-bottom:8px;color:var(--red)">⚠️ Admin Zone</div>
       <button class="btn btn-ghost-red" onclick="doDeleteReq('${r.request_id}')">
@@ -1108,6 +1209,51 @@ async function doDeleteReq(id){
 function gotoClose(id){
   $('cl-id').textContent='ปิดงานเลขที่: '+id;$('cl-rid').value=id;$('cl-det').value='';
   $('cl-p').value=0;$('cl-l').value=0;$('cl-o').value=0;calcCost();removeCloseImg();go('pg-close');
+}
+function gotoEdit(id){
+  // load ข้อมูลงานปัจจุบัน แล้วเติมฟอร์ม
+  ld('กำลังโหลด...');
+  api({action:'getRequestById',request_id:id}).then(r=>{
+    ul();
+    if(!r.success){toast(r.message,'er');return;}
+    const d=r.data;
+    $('edit-id').textContent='แก้ไขคำร้อง: '+id;
+    $('edit-rid').value=id;
+    // fill selects from master
+    const doFill=()=>{
+      ['edit-dept','edit-type','edit-cat','edit-mach','edit-urg'].forEach((elId,i)=>{
+        const key=['department','request_type','work_category','machine_status','urgency'][i];
+        const sel=$(elId);
+        if(!sel)return;
+        // populate from master if empty
+        if(sel.options.length<=1){
+          const masterKey=['department','request_type','work_category','machine_status','urgency'][i];
+          const items=(master[masterKey]||[]);
+          sel.innerHTML='<option value="">-- เลือก --</option>'+items.map(it=>`<option value="${it.value||it}">${it.display_text||it.value||it}</option>`).join('');
+        }
+        // set value
+        for(let j=0;j<sel.options.length;j++){if(sel.options[j].value===d[key]){sel.selectedIndex=j;break;}}
+      });
+    };
+    const pad=n=>String(n).padStart(2,'0');
+    const fmtDT=s=>{if(!s)return'';const dt=parseDate(s);if(!dt||isNaN(dt))return'';return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;};
+    $('edit-avail').value=fmtDT(d.available_repair_date);
+    $('edit-end').value=fmtDT(d.required_finish_date);
+    $('edit-det').value=d.problem_detail||'';
+    if(Object.keys(master).length>0)doFill();else loadMaster().then(doFill);
+    go('pg-edit');
+  }).catch(()=>{ul();toast('โหลดล้มเหลว','er');});
+}
+async function submitEdit(){
+  const id=$('edit-rid').value;
+  const checks=[{id:'edit-dept',label:'หน่วยงาน'},{id:'edit-type',label:'ประเภทการแจ้ง'},{id:'edit-avail',label:'วันที่เข้าซ่อมได้'},{id:'edit-end',label:'วันที่ต้องการให้เสร็จ'},{id:'edit-cat',label:'หมวดหมู่งาน'},{id:'edit-mach',label:'สถานะเครื่องจักร'},{id:'edit-det',label:'รายละเอียด'},{id:'edit-urg',label:'ระดับความเร่งด่วน'}];
+  for(const c of checks){const v=$(c.id).value.trim();if(!v){toast('กรุณากรอก: '+c.label,'er');$(c.id).focus();return;}}
+  $('btn-edit-save').disabled=true;ld('กำลังบันทึก...');
+  try{
+    const r=await api({action:'updateRequest',request_id:id,department:$('edit-dept').value,request_type:$('edit-type').value,available_repair_date:$('edit-avail').value,required_finish_date:$('edit-end').value,work_category:$('edit-cat').value,machine_status:$('edit-mach').value,problem_detail:$('edit-det').value.trim(),urgency:$('edit-urg').value});
+    toast(r.message,r.success?'ok':'er');
+    if(r.success){back();openDet(id);}
+  }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();$('btn-edit-save').disabled=false;}
 }
 function calcCost(){
   const p=parseFloat($('cl-p').value)||0,l=parseFloat($('cl-l').value)||0,o=parseFloat($('cl-o').value)||0;
@@ -1249,6 +1395,11 @@ function showExportPanel(){
   const ey=$('exp-y');
   if(!ey.options.length){const cur=new Date().getFullYear();for(let i=cur;i>=cur-3;i--)ey.innerHTML+=`<option value="${i}" ${i===cur?'selected':''}>${i+543}</option>`;}
   else $('exp-y').value=$('rpt-y').value||new Date().getFullYear();
+  // populate dept dropdown from master
+  const deptSel=$('exp-dept');
+  if(deptSel&&deptSel.options.length<=1&&master.department){
+    master.department.forEach(d=>{const opt=document.createElement('option');opt.value=d.value||d;opt.textContent=d.value||d;deptSel.appendChild(opt);});
+  }
   updateExpInfo();
 }
 function hideExportPanel(){$('export-panel').style.display='none';}
@@ -1260,19 +1411,27 @@ function selectFmt(f){
   $('btn-do-export').innerHTML=icon+' ดาวน์โหลด '+(f==='xlsx'?'Excel':'PDF');
 }
 async function updateExpInfo(){
-  const m=$('exp-m').value,y=$('exp-y').value;
+  const m=$('exp-m').value,y=$('exp-y').value,dept=$('exp-dept')?.value||'';
   try{const r=await api({action:'getReport',report_type:'all',month:m,year:y});
-    if(r.success){const mNames=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];$('exp-info').innerHTML=`พบ <b>${r.data.length} งาน</b> ${m?mNames[parseInt(m)]:'ทุกเดือน'} ${y?parseInt(y)+543:''}`;expData=r.data;}
+    if(r.success){
+      const mNames=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      let d=r.data;
+      if(dept)d=d.filter(x=>x.department===dept);
+      expData=d;
+      const deptLabel=dept?` · ${dept}`:'';
+      $('exp-info').innerHTML=`พบ <b>${d.length} งาน</b> ${m?mNames[parseInt(m)]:'ทุกเดือน'} ${y?parseInt(y)+543:''}${deptLabel}`;
+    }
   }catch(e){}
 }
 async function doExport(){
   if(!expData.length){toast('ไม่มีข้อมูล','er');return;}
-  const m=$('exp-m').value,y=$('exp-y').value;
+  const m=$('exp-m').value,y=$('exp-y').value,dept=$('exp-dept')?.value||'';
   const mNames=['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   const mLabel=m?mNames[parseInt(m)]:'ทุกเดือน',yLabel=y?parseInt(y)+543:'';
-  if(expFmt==='xlsx')exportExcel(mLabel,yLabel);else exportPDF(mLabel,yLabel);
+  const deptLabel=dept?`_${dept}`:'';
+  if(expFmt==='xlsx')exportExcel(mLabel,yLabel,dept,deptLabel);else exportPDF(mLabel,yLabel,dept);
 }
-function exportExcel(mLabel,yLabel){
+function exportExcel(mLabel,yLabel,dept='',deptLabel=''){
   if(typeof XLSX==='undefined'){toast('กำลังโหลด library...','');return;}
   const wb=XLSX.utils.book_new();
   if($('exp-summary').checked){
@@ -1296,11 +1455,12 @@ function exportExcel(mLabel,yLabel){
     const ws3=XLSX.utils.aoa_to_sheet([headers3,...rows3,[''],['รวมทั้งหมด',rows3.reduce((a,r)=>a+r[1],0),'','','',rows3.reduce((a,r)=>a+r[5],0)]]);
     ws3['!cols']=[{wch:16},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12}];XLSX.utils.book_append_sheet(wb,ws3,'ค่าใช้จ่ายหน่วยงาน');
   }
-  XLSX.writeFile(wb,`SmartMaintenance_RaiSam_${mLabel}${yLabel}.xlsx`);
+  XLSX.writeFile(wb,`SmartMaintenance_RaiSam_${mLabel}${yLabel}${deptLabel}.xlsx`);
   toast('ดาวน์โหลด Excel สำเร็จ','ok');hideExportPanel();
 }
-function exportPDF(mLabel,yLabel){
+function exportPDF(mLabel,yLabel,dept=''){
   const incSum=$('exp-summary').checked,incList=$('exp-list').checked,incCost=$('exp-cost').checked,incRating=$('exp-rating').checked;
+  const deptLabel=dept?` · ${dept}`:'';
   const done=expData.filter(r=>r.current_status==='เสร็จสิ้น').length;
   const pend=expData.filter(r=>r.current_status!=='เสร็จสิ้น'&&r.current_status!=='ไม่อนุมัติ').length;
   const totalCost=expData.reduce((a,r)=>a+(+r.total_cost||0),0);
@@ -1311,10 +1471,10 @@ function exportPDF(mLabel,yLabel){
   const badge=s=>`<span style="background:${TB[s]||'#eee'}!important;color:${TC[s]||'#333'};font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500">${s}</span>`;
   const listRows=expData.map((r,i)=>`<tr style="background:${i%2===0?'#ffffff':'#F9FAFB'}!important"><td style="color:#1976D2;font-weight:600">${r.request_id}</td><td>${r.created_at?new Date(r.created_at).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'2-digit'}):''}</td><td>${r.requester_name||''}</td><td>${r.department||''}</td><td>${r.work_category||''}</td><td>${badge(r.current_status)}</td><td style="text-align:right">${(+r.total_cost||0).toLocaleString()}</td><td style="text-align:center">${r.rating_score?'⭐'.repeat(+r.rating_score):'-'}</td></tr>`).join('');
   const deptRows=Object.keys(byDept).map((k,i)=>`<tr style="background:${i%2===0?'#ffffff':'#F9FAFB'}!important"><td>${k}</td><td style="text-align:center">${byDept[k].count}</td><td style="text-align:right">${byDept[k].total.toLocaleString()}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงาน Smart Maintenance - ศูนย์วิจัยไร่สาม ${mLabel} ${yLabel}</title>
+  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงาน Smart Maintenance - ศูนย์วิจัยไร่สาม ${mLabel} ${yLabel}${deptLabel}</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:'Sarabun',sans-serif;background:#F0F2F5;color:#1a1a1a;font-size:14px}.wrap{max-width:800px;margin:0 auto;background:#fff}.header{background:#1976D2!important;color:#fff!important;padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start}.header h1{font-size:20px;font-weight:700;margin-bottom:2px;color:#fff!important}.header p{font-size:12px;color:rgba(255,255,255,0.85)!important}.header-right{text-align:right;font-size:12px;color:rgba(255,255,255,0.85)!important}.body{padding:20px 24px}.section{margin-bottom:20px}.section-title{font-size:13px;font-weight:600;color:#757575;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E0E0E0}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px}.stat{border-radius:8px;padding:12px 14px}.stat-num{font-size:24px;font-weight:700;line-height:1}.stat-lbl{font-size:12px;margin-top:2px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#F0F2F5!important;padding:8px 10px;text-align:left;font-weight:600;color:#424242;font-size:11px}td{padding:8px 10px;border-bottom:0.5px solid #F0F2F5;vertical-align:middle}.footer{text-align:center;font-size:11px;color:#9E9E9E;padding:16px;border-top:1px solid #E0E0E0}.print-btn{display:flex;align-items:center;gap:8px;margin:24px auto 0;background:#1976D2!important;color:#fff!important;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-family:'Sarabun',sans-serif;font-weight:600;cursor:pointer;width:fit-content}@media print{.print-btn{display:none!important}}</style></head>
-<body><div class="wrap"><div class="header"><div><h1>Smart Maintenance 1.0</h1><p>ศูนย์วิจัยไร่สาม</p><p style="margin-top:4px">รายงานประจำเดือน ${mLabel} ${yLabel}</p></div><div class="header-right"><p>พิมพ์โดย: ${sess?.user?.full_name||''}</p><p style="margin-top:4px">วันที่: ${new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'long',year:'numeric'})}</p></div></div>
+<body><div class="wrap"><div class="header"><div><h1>Smart Maintenance 1.0</h1><p>ศูนย์วิจัยไร่สาม${dept?` · ${dept}`:''}</p><p style="margin-top:4px">รายงานประจำเดือน ${mLabel} ${yLabel}</p></div><div class="header-right"><p>พิมพ์โดย: ${sess?.user?.full_name||''}</p><p style="margin-top:4px">วันที่: ${new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'long',year:'numeric'})}</p></div></div>
 <div class="body">
 ${incSum?`<div class="section"><div class="section-title">สรุปสถิติ</div><div class="stats"><div class="stat" style="background:#E3F0FB!important"><div class="stat-num" style="color:#1976D2">${expData.length}</div><div class="stat-lbl" style="color:#1256A0">งานทั้งหมด</div></div><div class="stat" style="background:#E8F5E9!important"><div class="stat-num" style="color:#2E7D32">${done}</div><div class="stat-lbl" style="color:#1B5E20">เสร็จสิ้น</div></div><div class="stat" style="background:#FFEBEE!important"><div class="stat-num" style="color:#C62828">${pend}</div><div class="stat-lbl" style="color:#B71C1C">ค้างอยู่</div></div><div class="stat" style="background:#FFF3E0!important"><div class="stat-num" style="color:#E65100;font-size:18px">${totalCost.toLocaleString()}</div><div class="stat-lbl" style="color:#BF360C">ค่าใช้จ่าย (฿)</div></div>${incRating?`<div class="stat" style="background:#FFF8E1!important;grid-column:1/-1"><div class="stat-num" style="color:#F9A825">${avgRating}</div><div class="stat-lbl" style="color:#F57F17">คะแนนเฉลี่ย (จาก 5)</div></div>`:''}</div></div>`:''}
 ${incList?`<div class="section"><div class="section-title">รายการงาน (${expData.length} งาน)</div><table><thead><tr><th>เลขงาน</th><th>วันที่</th><th>ผู้แจ้ง</th><th>หน่วยงาน</th><th>หมวดหมู่</th><th>สถานะ</th><th style="text-align:right">รวม (฿)</th><th style="text-align:center">คะแนน</th></tr></thead><tbody>${listRows}</tbody></table></div>`:''}
