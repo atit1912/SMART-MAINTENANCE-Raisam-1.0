@@ -1111,8 +1111,10 @@ function renderDet(r){
   const cost=r.current_status==='เสร็จสิ้น'?`<div class="card"><div class="card-p"><div class="sec" style="margin-bottom:10px">ค่าใช้จ่าย</div><div class="crow"><span>ค่าอะไหล่</span><span>${(+r.cost_part||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าแรง</span><span>${(+r.cost_labor||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าอื่นๆ</span><span>${(+r.cost_other||0).toLocaleString()} บาท</span></div><div class="crow tot"><span>รวม</span><span style="color:var(--blue)">${(+r.total_cost||0).toLocaleString()} บาท</span></div></div></div>`:'';
   const canRate=r.current_status==='เสร็จสิ้น'&&r.created_by===sess.user.username&&!r.rating_score;
   const canEdit=r.current_status==='แจ้งซ่อม'&&r.created_by===sess.user.username;
-  // Approver แก้วันที่ได้ตอน แจ้งซ่อม, ช่างแก้วันที่ได้ตอน ช่างรับงาน/กำลังดำเนินการ
-  const canAdjustDates=(apv&&r.current_status==='แจ้งซ่อม')||(tec&&(r.current_status==='ช่างรับงาน'||r.current_status==='กำลังดำเนินการ'||r.current_status==='อนุมัติ'));
+  // ปรับวันเข้าซ่อม + วันเสร็จ: Approver ตอน แจ้งซ่อม / ช่างตอน อนุมัติ+หลังจากนั้น
+  const canAdjustDates=(apv&&r.current_status==='แจ้งซ่อม')||(tec&&['อนุมัติ','ช่างรับงาน','กำลังดำเนินการ'].includes(r.current_status));
+  // หลังอนุมัติแล้ว ช่างแก้ได้แค่วันเข้าซ่อม ไม่มีวันเสร็จ
+  const canAdjustEnd=apv&&r.current_status==='แจ้งซ่อม';
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
@@ -1158,9 +1160,9 @@ function renderDet(r){
       <div class="sec" style="margin-bottom:4px;color:#E65100">📅 ปรับวันที่นัดซ่อม</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">ปรับได้เมื่อต้องการเวลาเพิ่มหรือเปลี่ยนแผน</div>
       <div class="fg" style="margin-bottom:8px"><label class="fl" style="font-size:12px">วันที่เข้าซ่อมได้</label><input id="adj-avail" type="datetime-local" class="fc" value=""></div>
-      <div class="fg" style="margin-bottom:10px"><label class="fl" style="font-size:12px">วันที่ต้องการให้เสร็จ</label><input id="adj-end" type="datetime-local" class="fc" value=""></div>
+      ${canAdjustEnd?`<div class="fg" style="margin-bottom:8px"><label class="fl" style="font-size:12px">วันที่ต้องการให้เสร็จ</label><input id="adj-end" type="datetime-local" class="fc" value=""></div>`:''}
       <div class="fg" style="margin-bottom:10px"><label class="fl" style="font-size:12px">เหตุผลที่ปรับ</label><input id="adj-reason" type="text" class="fc" placeholder="เช่น รออะไหล่, ต้องการทีมเพิ่ม..."></div>
-      <button class="btn btn-orange" onclick="submitAdjustDates('${r.request_id}')">บันทึกการปรับวันที่</button>
+      <button class="btn btn-orange" onclick="submitAdjustDates('${r.request_id}',${canAdjustEnd})">บันทึกการปรับวันที่</button>
     </div></div>`:''}
     ${canEdit?`<div class="card mt12"><div class="card-p">
       <div class="sec" style="margin-bottom:8px;color:var(--blue)">✏️ แก้ไขคำร้อง</div>
@@ -1181,21 +1183,52 @@ function renderDet(r){
   if(canAdjustDates){
     const pad=n=>String(n).padStart(2,'0');
     const fmtDT=s=>{if(!s)return'';const dt=parseDate(s);if(!dt||isNaN(dt))return'';return`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;};
-    const av=$('adj-avail'),en=$('adj-end');
-    if(av)av.value=fmtDT(r.available_repair_date);
-    if(en)en.value=fmtDT(r.required_finish_date);
+    const av=$('adj-avail');if(av)av.value=fmtDT(r.available_repair_date);
+    if(canAdjustEnd){const en=$('adj-end');if(en)en.value=fmtDT(r.required_finish_date);}
   }
 }
-async function doApprove(id){if(!confirm('ยืนยันอนุมัติงาน '+id+'?'))return;ld('กำลังอนุมัติ...');try{const r=await api({action:'approveRequest',request_id:id});toast(r.message,r.success?'ok':'er');if(r.success)back();}finally{ul();}}
-async function submitAdjustDates(id){
+async function doApprove(id){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;display:flex;align-items:flex-end;justify-content:center';
+  overlay.innerHTML=`
+    <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:20px 20px 40px">
+      <div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 16px"></div>
+      <div style="font-size:16px;font-weight:700;color:#2E7D32;margin-bottom:6px">✅ อนุมัติงาน</div>
+      <div style="font-size:13px;color:#757575;margin-bottom:14px">เลขงาน: <b>${id}</b></div>
+      <div style="font-size:13px;font-weight:600;color:#424242;margin-bottom:6px">ข้อความเพิ่มเติม <span style="font-size:12px;color:#9E9E9E;font-weight:400">(ไม่บังคับ)</span></div>
+      <textarea id="approve-note" style="width:100%;padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:15px;font-family:'Sarabun',sans-serif;min-height:80px;resize:none;outline:none" placeholder="เช่น นัดช่างวันจันทร์ เตรียมอะไหล่ให้พร้อม..."></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button id="approve-cancel" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E0E0E0;background:#fff;color:#424242;font-size:15px;font-family:'Sarabun',sans-serif;font-weight:600;cursor:pointer">ยกเลิก</button>
+        <button id="approve-confirm" style="flex:1;padding:12px;border-radius:8px;border:none;background:#2E7D32;color:#fff;font-size:15px;font-family:'Sarabun',sans-serif;font-weight:600;cursor:pointer">ยืนยันอนุมัติ</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('approve-note').focus(),100);
+  document.getElementById('approve-cancel').onclick=()=>overlay.remove();
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.getElementById('approve-confirm').onclick=async()=>{
+    const note=document.getElementById('approve-note').value.trim();
+    overlay.remove();
+    ld('กำลังอนุมัติ...');
+    try{
+      const r=await api({action:'approveRequest',request_id:id,note:note});
+      toast(r.message,r.success?'ok':'er');
+      if(r.success)back();
+    }finally{ul();}
+  };
+}
+async function submitAdjustDates(id,hasEnd){
   const avail=$('adj-avail')?.value;
-  const end=$('adj-end')?.value;
+  const end=hasEnd?$('adj-end')?.value:null;
   const reason=$('adj-reason')?.value.trim();
-  if(!avail||!end){toast('กรุณากรอกวันที่ทั้งสองช่อง','er');return;}
+  if(!avail){toast('กรุณากรอกวันที่เข้าซ่อมได้','er');return;}
+  if(hasEnd&&!end){toast('กรุณากรอกวันที่ต้องการให้เสร็จ','er');return;}
   if(!reason){toast('กรุณาระบุเหตุผลที่ปรับวันที่','er');$('adj-reason')?.focus();return;}
   ld('กำลังบันทึก...');
   try{
-    const r=await api({action:'adjustDates',request_id:id,available_repair_date:avail,required_finish_date:end,remark:reason});
+    const payload={action:'adjustDates',request_id:id,available_repair_date:avail,remark:reason};
+    if(hasEnd&&end)payload.required_finish_date=end;
+    const r=await api(payload);
     toast(r.message,r.success?'ok':'er');
     if(r.success)openDet(id);
   }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
