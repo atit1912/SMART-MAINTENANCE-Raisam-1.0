@@ -1111,6 +1111,8 @@ function renderDet(r){
   const cost=r.current_status==='เสร็จสิ้น'?`<div class="card"><div class="card-p"><div class="sec" style="margin-bottom:10px">ค่าใช้จ่าย</div><div class="crow"><span>ค่าอะไหล่</span><span>${(+r.cost_part||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าแรง</span><span>${(+r.cost_labor||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าอื่นๆ</span><span>${(+r.cost_other||0).toLocaleString()} บาท</span></div><div class="crow tot"><span>รวม</span><span style="color:var(--blue)">${(+r.total_cost||0).toLocaleString()} บาท</span></div></div></div>`:'';
   const canRate=r.current_status==='เสร็จสิ้น'&&r.created_by===sess.user.username&&!r.rating_score;
   const canEdit=r.current_status==='แจ้งซ่อม'&&r.created_by===sess.user.username;
+  // Approver แก้วันที่ได้ตอน แจ้งซ่อม, ช่างแก้วันที่ได้ตอน ช่างรับงาน/กำลังดำเนินการ
+  const canAdjustDates=(apv&&r.current_status==='แจ้งซ่อม')||(tec&&(r.current_status==='ช่างรับงาน'||r.current_status==='กำลังดำเนินการ'||r.current_status==='อนุมัติ'));
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
@@ -1152,6 +1154,14 @@ function renderDet(r){
     </div></div>
     <div class="card"><div class="card-p"><div class="sec" style="margin-bottom:12px">ประวัติการดำเนินงาน</div>${tlHtml}</div></div>
     ${cost}${ratingHtml}
+    ${canAdjustDates?`<div class="card mt12"><div class="card-p">
+      <div class="sec" style="margin-bottom:4px;color:#E65100">📅 ปรับวันที่นัดซ่อม</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">ปรับได้เมื่อต้องการเวลาเพิ่มหรือเปลี่ยนแผน</div>
+      <div class="fg" style="margin-bottom:8px"><label class="fl" style="font-size:12px">วันที่เข้าซ่อมได้</label><input id="adj-avail" type="datetime-local" class="fc" value=""></div>
+      <div class="fg" style="margin-bottom:10px"><label class="fl" style="font-size:12px">วันที่ต้องการให้เสร็จ</label><input id="adj-end" type="datetime-local" class="fc" value=""></div>
+      <div class="fg" style="margin-bottom:10px"><label class="fl" style="font-size:12px">เหตุผลที่ปรับ</label><input id="adj-reason" type="text" class="fc" placeholder="เช่น รออะไหล่, ต้องการทีมเพิ่ม..."></div>
+      <button class="btn btn-orange" onclick="submitAdjustDates('${r.request_id}')">บันทึกการปรับวันที่</button>
+    </div></div>`:''}
     ${canEdit?`<div class="card mt12"><div class="card-p">
       <div class="sec" style="margin-bottom:8px;color:var(--blue)">✏️ แก้ไขคำร้อง</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">แก้ไขได้เฉพาะก่อนอนุมัติ</div>
@@ -1167,8 +1177,29 @@ function renderDet(r){
         ลบงานนี้ออกจากระบบ
       </button>
     </div></div>`:''}`;
+  // เติมค่าวันที่เดิมใน input
+  if(canAdjustDates){
+    const pad=n=>String(n).padStart(2,'0');
+    const fmtDT=s=>{if(!s)return'';const dt=parseDate(s);if(!dt||isNaN(dt))return'';return`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;};
+    const av=$('adj-avail'),en=$('adj-end');
+    if(av)av.value=fmtDT(r.available_repair_date);
+    if(en)en.value=fmtDT(r.required_finish_date);
+  }
 }
 async function doApprove(id){if(!confirm('ยืนยันอนุมัติงาน '+id+'?'))return;ld('กำลังอนุมัติ...');try{const r=await api({action:'approveRequest',request_id:id});toast(r.message,r.success?'ok':'er');if(r.success)back();}finally{ul();}}
+async function submitAdjustDates(id){
+  const avail=$('adj-avail')?.value;
+  const end=$('adj-end')?.value;
+  const reason=$('adj-reason')?.value.trim();
+  if(!avail||!end){toast('กรุณากรอกวันที่ทั้งสองช่อง','er');return;}
+  if(!reason){toast('กรุณาระบุเหตุผลที่ปรับวันที่','er');$('adj-reason')?.focus();return;}
+  ld('กำลังบันทึก...');
+  try{
+    const r=await api({action:'adjustDates',request_id:id,available_repair_date:avail,required_finish_date:end,remark:reason});
+    toast(r.message,r.success?'ok':'er');
+    if(r.success)openDet(id);
+  }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
+}
 async function doReject(id){
   // แสดง popup บังคับกรอกเหตุผล
   const overlay=document.createElement('div');
