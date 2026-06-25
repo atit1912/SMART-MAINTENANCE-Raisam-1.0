@@ -1119,10 +1119,11 @@ function renderDet(r){
   const cost=r.current_status==='เสร็จสิ้น'?`<div class="card"><div class="card-p"><div class="sec" style="margin-bottom:10px">ค่าใช้จ่าย</div><div class="crow"><span>ค่าอะไหล่</span><span>${(+r.cost_part||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าแรง</span><span>${(+r.cost_labor||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าอื่นๆ</span><span>${(+r.cost_other||0).toLocaleString()} บาท</span></div><div class="crow tot"><span>รวม</span><span style="color:var(--blue)">${(+r.total_cost||0).toLocaleString()} บาท</span></div></div></div>`:'';
   const canRate=r.current_status==='เสร็จสิ้น'&&r.created_by===sess.user.username&&!r.rating_score;
   const canEdit=r.current_status==='แจ้งซ่อม'&&r.created_by===sess.user.username;
-  // ปรับวันเข้าซ่อม + วันเสร็จ: Approver ตอน แจ้งซ่อม / ช่างตอน อนุมัติ+หลังจากนั้น
-  const canAdjustDates=(apv&&r.current_status==='แจ้งซ่อม')||(tec&&['อนุมัติ','ช่างรับงาน','กำลังดำเนินการ'].includes(r.current_status));
-  // หลังอนุมัติแล้ว ช่างแก้ได้แค่วันเข้าซ่อม ไม่มีวันเสร็จ
-  const canAdjustEnd=apv&&r.current_status==='แจ้งซ่อม';
+  // ปรับวันที่: เฉพาะตอนสถานะ "แจ้งซ่อม" (ก่อนอนุมัติ) เท่านั้น — Approver หรือเจ้าของงาน
+  const isOwner=r.created_by===sess.user.username;
+  const canAdjustDates=r.current_status==='แจ้งซ่อม'&&(apv||isOwner);
+  // ปรับได้ทั้ง 2 วัน (วันเข้าซ่อม + วันเสร็จ) ก่อนอนุมัติเสมอ
+  const canAdjustEnd=canAdjustDates;
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
