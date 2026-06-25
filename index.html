@@ -800,13 +800,17 @@ function togglePw(){const i=$('lp');i.type=i.type==='password'?'text':'password'
 
 async function doLogin(){
   const u=$('lu').value.trim(),p=$('lp').value;
+  const remember=$('lr').checked;
   $('lerr').style.display='none';
   if(!u||!p){$('lerr').textContent='กรุณากรอก username และ password';$('lerr').style.display='block';return;}
   $('btn-login').disabled=true;$('btn-login').textContent='กำลังเข้าสู่ระบบ...';
   try{
     const r=await api({action:'login',username:u,password:p});
     if(r.success){
-      sess=r;sess.loginTime=Date.now();localStorage.setItem('sm_s',JSON.stringify(sess));
+      sess=r;sess.loginTime=Date.now();sess.rememberMe=remember;
+      localStorage.setItem('sm_s',JSON.stringify(sess));
+      if(remember){localStorage.setItem('sm_remember_user',u);}
+      else{localStorage.removeItem('sm_remember_user');}
       const exp=$('sess-expired');if(exp)exp.style.display='none';
       startApp();
     }
@@ -814,12 +818,13 @@ async function doLogin(){
   }catch(e){$('lerr').textContent='ไม่สามารถเชื่อมต่อได้';$('lerr').style.display='block';}
   finally{$('btn-login').disabled=false;$('btn-login').textContent='เข้าสู่ระบบ';}
 }
-function doLogout(){if(!confirm('ออกจากระบบ?'))return;sess=null;localStorage.removeItem('sm_s');location.reload();}
+function doLogout(){if(!confirm('ออกจากระบบ?'))return;sess=null;localStorage.removeItem('sm_s');localStorage.removeItem('sm_remember_user');location.reload();}
 function checkSess(){
   const s=localStorage.getItem('sm_s');
   if(s){
     sess=JSON.parse(s);
-    if(Date.now()-(sess.loginTime||0)>8*60*60*1000){
+    const remembered=sess.rememberMe===true;
+    if(!remembered&&Date.now()-(sess.loginTime||0)>8*60*60*1000){
       sess=null;localStorage.removeItem('sm_s');
       const exp=$('sess-expired');if(exp)exp.style.display='block';
       toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');
@@ -828,8 +833,11 @@ function checkSess(){
     startApp();
     setInterval(()=>{
       const cur=localStorage.getItem('sm_s');
-      if(cur){const obj=JSON.parse(cur);if(Date.now()-(obj.loginTime||0)>8*60*60*1000){sess=null;localStorage.removeItem('sm_s');$('main').style.display='none';$('pg-login').style.display='flex';const exp=$('sess-expired');if(exp)exp.style.display='block';toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');}}
+      if(cur){const obj=JSON.parse(cur);const rem=obj.rememberMe===true;if(!rem&&Date.now()-(obj.loginTime||0)>8*60*60*1000){sess=null;localStorage.removeItem('sm_s');$('main').style.display='none';$('pg-login').style.display='flex';const exp=$('sess-expired');if(exp)exp.style.display='block';toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');}}
     },15*60*1000);
+  } else {
+    const savedUser=localStorage.getItem('sm_remember_user');
+    if(savedUser){$('lu').value=savedUser;$('lr').checked=true;$('lp').focus();}
   }
 }
 function startApp(){
