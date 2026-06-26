@@ -1119,17 +1119,23 @@ function renderDet(r){
   const cost=r.current_status==='เสร็จสิ้น'?`<div class="card"><div class="card-p"><div class="sec" style="margin-bottom:10px">ค่าใช้จ่าย</div><div class="crow"><span>ค่าอะไหล่</span><span>${(+r.cost_part||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าแรง</span><span>${(+r.cost_labor||0).toLocaleString()} บาท</span></div><div class="crow"><span>ค่าอื่นๆ</span><span>${(+r.cost_other||0).toLocaleString()} บาท</span></div><div class="crow tot"><span>รวม</span><span style="color:var(--blue)">${(+r.total_cost||0).toLocaleString()} บาท</span></div></div></div>`:'';
   const canRate=r.current_status==='เสร็จสิ้น'&&r.created_by===sess.user.username&&!r.rating_score;
   const canEdit=r.current_status==='แจ้งซ่อม'&&r.created_by===sess.user.username;
-  // ปรับวันที่: เฉพาะตอนสถานะ "แจ้งซ่อม" (ก่อนอนุมัติ) เท่านั้น — Approver หรือเจ้าของงาน
+  // ปรับวันที่:
+  //  - สถานะ "แจ้งซ่อม" (ก่อนอนุมัติ) -> Approver หรือเจ้าของงาน
+  //  - สถานะ "อนุมัติ" (ก่อนรับงาน)  -> ช่าง / Admin / Approver
+  // หลังรับงานแล้ว (ช่างรับงาน ขึ้นไป) ฟังก์ชันนี้หายไป
   const isOwner=r.created_by===sess.user.username;
-  const canAdjustDates=r.current_status==='แจ้งซ่อม'&&(apv||isOwner);
-  // ปรับได้ทั้ง 2 วัน (วันเข้าซ่อม + วันเสร็จ) ก่อนอนุมัติเสมอ
+  const canAdjustDates=(r.current_status==='แจ้งซ่อม'&&(apv||isOwner))
+                     ||(r.current_status==='อนุมัติ'&&(tec||apv));
+  // ปรับได้ทั้ง 2 วัน (วันเข้าซ่อม + วันเสร็จ) เสมอเมื่อปรับได้
   const canAdjustEnd=canAdjustDates;
+  // ช่องใส่รายละเอียดเพิ่มเติมโดยช่าง: เฉพาะสถานะ "อนุมัติ" (ก่อนรับงาน)
+  const canTechNote=r.current_status==='อนุมัติ'&&(tec||apv);
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
   const tlItems=[];
   tlItems.push({status:'แจ้งซ่อม',by:r.requester_name,at:r.created_at,note:r.problem_detail,img:r.image_url});
-  if(r.approved_by)tlItems.push({status:'อนุมัติ',by:r.approved_by,at:r.approved_at,note:''});
+  if(r.approved_by)tlItems.push({status:'อนุมัติ',by:r.approved_by,at:r.approved_at,note:(!r.rejected_by&&r.remark)?r.remark:''});
   if(r.rejected_by)tlItems.push({status:'ไม่อนุมัติ',by:r.rejected_by,at:r.rejected_at,note:r.remark});
   if(r.assigned_to)tlItems.push({status:'ช่างรับงาน',by:r.assigned_to,at:r.accepted_at,note:''});
   if(r.work_start_at)tlItems.push({status:'กำลังดำเนินการ',by:r.assigned_to||'',at:r.work_start_at,note:''});
@@ -1165,6 +1171,12 @@ function renderDet(r){
     </div></div>
     <div class="card"><div class="card-p"><div class="sec" style="margin-bottom:12px">ประวัติการดำเนินงาน</div>${tlHtml}</div></div>
     ${cost}${ratingHtml}
+    ${canTechNote?`<div class="card mt12"><div class="card-p">
+      <div class="sec" style="margin-bottom:4px;color:var(--purple)">📝 รายละเอียดจากช่าง</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">แจ้งข้อมูลก่อนรับงาน เช่น ต้องสั่งอะไหล่หลายวัน, รอคิว ฯลฯ</div>
+      <div class="fg" style="margin-bottom:10px"><textarea id="tech-note" class="fc" style="min-height:80px;resize:vertical" placeholder="เช่น ต้องสั่งอะไหล่ รอของประมาณ 5 วัน...">${(r.remark||'').replace(/</g,'&lt;')}</textarea></div>
+      <button class="btn" style="background:var(--purple);color:#fff" onclick="submitTechNote('${r.request_id}')">บันทึกรายละเอียด</button>
+    </div></div>`:''}
     ${canAdjustDates?`<div class="card mt12"><div class="card-p">
       <div class="sec" style="margin-bottom:4px;color:#E65100">📅 ปรับวันที่นัดซ่อม</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">ปรับได้เมื่อต้องการเวลาเพิ่มหรือเปลี่ยนแผน</div>
@@ -1242,7 +1254,16 @@ async function submitAdjustDates(id,hasEnd){
     if(r.success)openDet(id);
   }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
 }
-async function doReject(id){
+async function submitTechNote(id){
+  const note=$('tech-note')?.value.trim();
+  if(!note){toast('กรุณาพิมพ์รายละเอียดก่อนบันทึก','er');$('tech-note')?.focus();return;}
+  ld('กำลังบันทึก...');
+  try{
+    const r=await api({action:'updateRemark',request_id:id,remark:note});
+    toast(r.message,r.success?'ok':'er');
+    if(r.success)openDet(id);
+  }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
+}
   // แสดง popup บังคับกรอกเหตุผล
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;display:flex;align-items:flex-end;justify-content:center';
