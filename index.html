@@ -1641,6 +1641,15 @@ window.addEventListener('load',()=>{
   const params=new URLSearchParams(window.location.search),rid=params.get('id');
   if(rid&&sess)setTimeout(()=>openDet(rid),300);else if(rid)window._pendingId=rid;
 });
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&sess){
+    const cur=localStorage.getItem('sm_s');
+    if(!cur){sess=null;$('main').style.display='none';$('pg-login').style.display='flex';const exp=$('sess-expired');if(exp)exp.style.display='block';toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');return;}
+    const obj=JSON.parse(cur);
+    const rem=obj.rememberMe===true;
+    if(!rem&&Date.now()-(obj.loginTime||0)>8*60*60*1000){sess=null;localStorage.removeItem('sm_s');$('main').style.display='none';$('pg-login').style.display='flex';const exp=$('sess-expired');if(exp)exp.style.display='block';toast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่','er');}
+  }
+});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
