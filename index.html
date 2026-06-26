@@ -1128,9 +1128,6 @@ function renderDet(r){
                      ||(r.current_status==='อนุมัติ'&&(tec||apv));
   // ปรับได้ทั้ง 2 วัน (วันเข้าซ่อม + วันเสร็จ) เสมอเมื่อปรับได้
   const canAdjustEnd=canAdjustDates;
-  // ช่องใส่รายละเอียดเพิ่มเติมโดยช่าง: เฉพาะสถานะ "อนุมัติ" (ก่อนรับงาน)
-  const canTechNote=r.current_status==='อนุมัติ'&&(tec||apv);
-  const techNoteVal=String(r.remark||'').split('<').join('&lt;').split('>').join('&gt;');
   const ratingHtml=canRate?`<div class="card mt12"><div class="card-p"><div class="sec" style="margin-bottom:10px">⭐ ให้คะแนนการซ่อม</div><div style="display:flex;gap:8px;justify-content:center;padding:8px 0" id="star-rating"><span onclick="setDetRating(1)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(2)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(3)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(4)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span><span onclick="setDetRating(5)" style="font-size:32px;cursor:pointer;opacity:0.3">⭐</span></div><div id="det-rating-label" style="text-align:center;font-size:13px;color:var(--muted)">ยังไม่ได้ให้คะแนน</div><input type="hidden" id="det-rating-val" value="0"><input type="hidden" id="det-rating-rid" value="${r.request_id}"><button class="btn btn-orange mt12" onclick="submitRating()">ส่งคะแนน</button></div></div>`:'';
   const tlColors={'แจ้งซ่อม':'#1976D2','อนุมัติ':'#2E7D32','ไม่อนุมัติ':'#C62828','ช่างรับงาน':'#E65100','กำลังดำเนินการ':'#6A1B9A','เสร็จสิ้น':'#00695C'};
   const tlIcons={'แจ้งซ่อม':'📋','อนุมัติ':'✅','ไม่อนุมัติ':'❌','ช่างรับงาน':'👷','กำลังดำเนินการ':'🔧','เสร็จสิ้น':'🏁'};
@@ -1172,12 +1169,6 @@ function renderDet(r){
     </div></div>
     <div class="card"><div class="card-p"><div class="sec" style="margin-bottom:12px">ประวัติการดำเนินงาน</div>${tlHtml}</div></div>
     ${cost}${ratingHtml}
-    ${canTechNote?`<div class="card mt12"><div class="card-p">
-      <div class="sec" style="margin-bottom:4px;color:var(--purple)">📝 รายละเอียดจากช่าง</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">แจ้งข้อมูลก่อนรับงาน เช่น ต้องสั่งอะไหล่หลายวัน, รอคิว ฯลฯ</div>
-      <div class="fg" style="margin-bottom:10px"><textarea id="tech-note" class="fc" style="min-height:80px;resize:vertical" placeholder="เช่น ต้องสั่งอะไหล่ รอของประมาณ 5 วัน...">${techNoteVal}</textarea></div>
-      <button class="btn" style="background:var(--purple);color:#fff" onclick="submitTechNote('${r.request_id}')">บันทึกรายละเอียด</button>
-    </div></div>`:''}
     ${canAdjustDates?`<div class="card mt12"><div class="card-p">
       <div class="sec" style="margin-bottom:4px;color:#E65100">📅 ปรับวันที่นัดซ่อม</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">ปรับได้เมื่อต้องการเวลาเพิ่มหรือเปลี่ยนแผน</div>
@@ -1251,16 +1242,6 @@ async function submitAdjustDates(id,hasEnd){
     const payload={action:'adjustDates',request_id:id,available_repair_date:avail,remark:reason};
     if(hasEnd&&end)payload.required_finish_date=end;
     const r=await api(payload);
-    toast(r.message,r.success?'ok':'er');
-    if(r.success)openDet(id);
-  }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
-}
-async function submitTechNote(id){
-  const note=$('tech-note')?.value.trim();
-  if(!note){toast('กรุณาพิมพ์รายละเอียดก่อนบันทึก','er');$('tech-note')?.focus();return;}
-  ld('กำลังบันทึก...');
-  try{
-    const r=await api({action:'updateRemark',request_id:id,remark:note});
     toast(r.message,r.success?'ok':'er');
     if(r.success)openDet(id);
   }catch(e){toast('บันทึกล้มเหลว','er');}finally{ul();}
